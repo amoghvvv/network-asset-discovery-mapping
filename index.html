@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NETMAP FULL — Network Asset Discovery &amp; Mapping</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#topology-map">Skip to topology map</a>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◈</span>
+    <div>
+      <strong>NETMAP FULL</strong>
+      <span>Network Asset Discovery &amp; Mapping — Full-Feature Version</span>
+    </div>
+  </div>
+  <div class="badges">
+    <span class="badge synthetic">SYNTHETIC / DEMO DATA BY DEFAULT</span>
+    <span class="badge safe">NO REAL SCAN — NO PACKETS SENT</span>
+    <span class="badge full">FULL VERSION — IMPORT · HISTORY · RULES · EXPORT</span>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel controls">
+    <h2>DISCOVERY CONSOLE</h2>
+    <p class="hint">Full version extends the simulation: import authorised inventory exports, track every change, tune risk rules, and export the topology. Default data is invented in your browser. No real host is probed.</p>
+
+    <button id="generateBtn" class="primary" type="button">⟳ Generate Network</button>
+    <button id="randomEventBtn" class="secondary" type="button">+ Inject simulated event</button>
+    <button id="exportBtn" class="secondary" type="button">⬇ Export topology (JSON)</button>
+    <button id="clearMapBtn" class="secondary" type="button">Clear map (empty-state demo)</button>
+
+    <label class="field">Search hostname / IP
+      <input id="searchInput" type="text" placeholder="e.g. srv-db-02 or 10.0.2.14">
+    </label>
+
+    <label class="field">Filter by role
+      <select id="roleFilter">
+        <option value="All">All roles</option>
+        <option value="Core">Core</option>
+        <option value="Server">Server</option>
+        <option value="Workstation">Workstation</option>
+        <option value="Network">Network</option>
+        <option value="IoT">IoT</option>
+        <option value="Printer">Printer</option>
+        <option value="Unknown">Unknown</option>
+      </select>
+    </label>
+
+    <label class="field">Filter by risk
+      <select id="riskFilter">
+        <option value="All">All risk levels</option>
+        <option value="Critical">Critical only</option>
+        <option value="High">High only</option>
+        <option value="Medium">Medium only</option>
+        <option value="Low">Low only</option>
+        <option value="Safe">Safe only</option>
+      </select>
+    </label>
+
+    <label class="field">Filter by source
+      <select id="sourceFilter">
+        <option value="All">All sources</option>
+        <option value="generated">Generated (demo)</option>
+        <option value="imported-json">Imported — JSON</option>
+        <option value="imported-csv">Imported — CSV</option>
+        <option value="adapter">Adapter (mock)</option>
+        <option value="manual">Manual</option>
+      </select>
+    </label>
+
+    <div class="field">
+      <span class="label">Group layout</span>
+      <div class="seg">
+        <button id="groupSubnetBtn" class="seg-btn active" type="button" aria-pressed="true">By subnet</button>
+        <button id="groupRoleBtn" class="seg-btn" type="button" aria-pressed="false">By role</button>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <button id="clearFiltersBtn" class="secondary" type="button">Clear filters</button>
+    <p class="filter-summary" id="filterSummary" aria-live="polite">Active filters: Role=All · Risk=All · Source=All</p>
+
+    <div class="legend">
+      <h3>LEGEND</h3>
+      <p><span class="dot cyan"></span> Normal link &nbsp; <span class="dot amber"></span> Risky link &nbsp; <span class="dot red"></span> Critical link</p>
+      <p><span class="dot cyan"></span> Safe / Low &nbsp; <span class="dot amber"></span> Medium / High &nbsp; <span class="dot red"></span> Critical &nbsp; <span class="dot grey"></span> Unknown</p>
+      <p>◆ Core &nbsp; ● Server / Workstation / Network &nbsp; ▲ IoT / Printer</p>
+      <p>Click a node to inspect it. The white ring marks the selected node.</p>
+    </div>
+  </aside>
+
+  <section class="map-wrap" id="topology-map">
+    <div class="map-head">
+      <div>
+        <h1>LIVE TOPOLOGY — FULL VERSION</h1>
+        <p id="mapMeta">Click any node for its connections, services, source and risk. Dimmed nodes are filtered out.</p>
+      </div>
+      <div class="map-status"><span class="pulse"></span> FULL CONSOLE ACTIVE</div>
+    </div>
+    <canvas id="topology" width="900" height="560" role="img" aria-label="Network topology map" aria-describedby="mapKeyboardHint" tabindex="0"></canvas>
+    <p class="hint" id="mapKeyboardHint">Keyboard: focus the map, then use arrow keys to move between visible nodes. Table rows are also focusable — press Enter to select a row.</p>
+    <div class="map-foot">
+      <span id="visibleCount"></span>
+      <span>Layout: <b id="layoutLabel">By subnet</b> &nbsp;|&nbsp; Click to inspect. Use detail panel to remove an asset.</span>
+    </div>
+    <p class="filter-summary" id="selectedLabel" aria-live="polite">No node selected — click a node on the map or a row in the table.</p>
+
+    <section class="subpanel" id="importPanel">
+      <h2>IMPORT — AUTHORISED INVENTORY ONLY</h2>
+      <p class="hint">Import only exports you are authorised to use: a CMDB export, an inventory CSV, or a cloud-inventory JSON file. This demo never scans a network. Uploading a file reads it only in your browser; nothing is sent to a server.</p>
+      <label class="field">Import format
+        <select id="importFormat">
+          <option value="auto">Auto-detect (JSON / CSV)</option>
+          <option value="cmdb-json">CMDB export — JSON</option>
+          <option value="inventory-csv">Inventory — CSV</option>
+          <option value="cloud-json">Cloud inventory — JSON</option>
+        </select>
+      </label>
+      <div class="row">
+        <input id="importFile" type="file" accept=".json,.csv,text/plain">
+        <button id="importFileBtn" class="secondary" type="button">Import file</button>
+      </div>
+      <label class="field">Or paste JSON / CSV here
+        <textarea id="importText" rows="5" placeholder='[{"hostname":"srv-demo-01","ip":"10.0.5.12","subnet":"10.0.5.0/24","role":"Server","os":"Ubuntu Server (demo)","services":["HTTPS 443"],"patchLevel":"Current","lastSeenDays":1}]'></textarea>
+      </label>
+      <div class="row">
+        <button id="importTextBtn" class="secondary" type="button">Import pasted data</button>
+        <button id="loadSampleBtn" class="secondary" type="button">Load sample import</button>
+      </div>
+      <p id="importStatus" class="status" aria-live="polite"></p>
+      <p class="hint">Sample files are included in this repo: <code>sample-assets.json</code> and <code>sample-assets.csv</code>. Deduplication: same IP + hostname = one asset; a re-import updates that asset and logs a change.</p>
+    </section>
+
+    <section class="subpanel" id="adapterPanel">
+      <h2>AUTHORISED-SOURCE ADAPTERS</h2>
+      <p class="hint">Adapters are documented import formats, not live scanners. With no key configured they return mock data (clearly labelled). With a future server version, the same adapter names read from environment variables in <code>.env.example</code>.</p>
+      <label class="field">Adapter
+        <select id="adapterSelect">
+          <option value="cmdb">CMDB export adapter</option>
+          <option value="inventory">Inventory / agent export adapter</option>
+          <option value="cloud">Cloud inventory adapter</option>
+        </select>
+      </label>
+      <label class="field">API key slot (browser demo only — stored in this browser only, never sent anywhere in this demo)
+        <input id="apiKeyInput" type="password" placeholder="Leave blank to use mock fallback">
+      </label>
+      <div class="row">
+        <button id="saveKeyBtn" class="secondary" type="button">Save key locally</button>
+        <button id="clearKeyBtn" class="secondary" type="button">Clear local key</button>
+        <button id="runAdapterBtn" class="primary" type="button">Run adapter (mock if no key)</button>
+      </div>
+      <p id="adapterStatus" class="status" aria-live="polite"></p>
+    </section>
+  </section>
+
+  <aside class="panel detail">
+    <h2 id="detailTitle">SELECT A NODE</h2>
+    <div id="detailBody">
+      <p class="hint">Click a node on the map, or a row in the asset table below, to inspect it. You will see its source, subnet, role, operating system, services, connections, last-seen time, and risk flags.</p>
+    </div>
+    <div id="detailActions"></div>
+
+    <section class="subpanel inner">
+      <h2>ADD ASSET (MANUAL)</h2>
+      <label class="field">Hostname <input id="addHostname" type="text" placeholder="e.g. ws-demo-99"></label>
+      <label class="field">IP <input id="addIp" type="text" placeholder="e.g. 10.0.9.42"></label>
+      <label class="field">Subnet <input id="addSubnet" type="text" placeholder="e.g. 10.0.9.0/24"></label>
+      <label class="field">Role
+        <select id="addRole">
+          <option value="Server">Server</option>
+          <option value="Workstation">Workstation</option>
+          <option value="Network">Network</option>
+          <option value="IoT">IoT</option>
+          <option value="Printer">Printer</option>
+          <option value="Unknown">Unknown</option>
+        </select>
+      </label>
+      <button id="addAssetBtn" class="secondary" type="button">Add asset</button>
+      <p id="addStatus" class="status" aria-live="polite"></p>
+    </section>
+
+    <section class="subpanel inner">
+      <h2>RISK RULE EDITOR</h2>
+      <p class="hint">Change a weight, click Apply rules, and every asset is re-scored. Custom rule: if a service name contains the text, add the weight.</p>
+      <div id="ruleEditor"></div>
+      <label class="field">Custom rule — service contains
+        <input id="customService" type="text" placeholder="e.g. FTP">
+      </label>
+      <label class="field">Custom rule — weight
+        <input id="customWeight" type="number" value="25" min="0" max="100">
+      </label>
+      <div class="row">
+        <button id="addRuleBtn" class="secondary" type="button">Add custom rule</button>
+        <button id="applyRulesBtn" class="primary" type="button">Apply rules &amp; re-score</button>
+        <button id="resetRulesBtn" class="secondary" type="button">Reset defaults</button>
+      </div>
+      <p id="ruleStatus" class="status" aria-live="polite"></p>
+    </section>
+
+    <section class="subpanel inner">
+      <h2>CHANGE HISTORY</h2>
+      <p class="hint">Every add, remove, import, update and rule change is logged here, in this browser session (and kept in localStorage on this device only).</p>
+      <div class="row">
+        <button id="clearHistoryBtn" class="secondary" type="button">Clear history</button>
+      </div>
+      <ol id="historyList" class="history"></ol>
+    </section>
+  </aside>
+</main>
+
+<section class="table-wrap">
+  <h2>ASSET INVENTORY — FULL VERSION</h2>
+  <table>
+    <thead>
+      <tr><th>Hostname</th><th>IP</th><th>Subnet</th><th>Role</th><th>OS</th><th>Source</th><th>Risk</th><th>Flags</th><th>Last seen</th></tr>
+    </thead>
+    <tbody id="assetRows"></tbody>
+  </table>
+  <p class="foot-note">Default IPs, MACs, hostnames and services are invented for this demo and do not correspond to any real device. Imported rows are exactly what you imported — only import data you are authorised to use. No scan was performed by this app.</p>
+</section>
+
+<script src="adapters.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
