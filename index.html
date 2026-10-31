@@ -23,6 +23,33 @@
   </div>
 </header>
 
+<section class="hero" aria-label="What this is, in plain words">
+  <div class="hero-text">
+    <p class="eyebrow">FOR EVERYONE — NOT JUST NETWORK ENGINEERS</p>
+    <h1>A live map of every device on the network, and which ones need attention.</h1>
+    <p class="hero-sub">Think of it like a building plan for a computer network. Every dot is a device. Red dots need fixing first, amber dots need a look soon, cyan dots are fine. Nothing here touches a real network — it is all invented demo data.</p>
+    <div class="hero-cta">
+      <button id="tourStartBtn" class="primary" type="button">▶ Try this — guided tour (60 seconds)</button>
+      <button id="tourEndBtn" class="secondary" type="button">End tour</button>
+    </div>
+    <div id="tourBox" class="tour-box" aria-live="polite"><strong>Guided tour</strong><p id="tourText">Press “Try this” and this box will walk you through the map, one plain step at a time. You can stop at any point.</p><button id="tourNextBtn" class="secondary" type="button">Next step →</button></div>
+    <p class="hero-note">Marketing-person test: if you can point at a red dot and say why it is red, the demo has worked.</p>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <svg viewBox="0 0 420 300" role="img">
+      <rect x="8" y="8" width="404" height="284" rx="14" fill="none" stroke="#00e5ff" stroke-opacity="0.35"/>
+      <line x1="210" y1="150" x2="90" y2="70" stroke="#00e5ff"/><line x1="210" y1="150" x2="330" y2="70" stroke="#ffb020"/><line x1="210" y1="150" x2="90" y2="230" stroke="#ff3b4e"/><line x1="210" y1="150" x2="330" y2="230" stroke="#00e5ff"/>
+      <rect x="196" y="136" width="28" height="28" fill="#00e5ff"/><text x="210" y="156" text-anchor="middle" fill="#001318" font-size="14" font-weight="bold">◆</text>
+      <circle cx="90" cy="70" r="16" fill="#00e5ff"/><circle cx="330" cy="70" r="16" fill="#ffb020"/><circle cx="90" cy="230" r="16" fill="#ff3b4e"/><circle cx="330" cy="230" r="16" fill="#00e5ff"/>
+      <text x="90" y="105" text-anchor="middle" fill="#d7f6fb" font-size="11">SERVER · FINE</text>
+      <text x="330" y="105" text-anchor="middle" fill="#d7f6fb" font-size="11">LAPTOP · CHECK SOON</text>
+      <text x="90" y="265" text-anchor="middle" fill="#d7f6fb" font-size="11">UNKNOWN · FIX FIRST</text>
+      <text x="330" y="265" text-anchor="middle" fill="#d7f6fb" font-size="11">PRINTER · FINE</text>
+      <text x="210" y="30" text-anchor="middle" fill="#7dffc8" font-size="12" letter-spacing="2">BLUEPRINT · NOT A REAL NETWORK</text>
+    </svg>
+  </div>
+</section>
+
 <main class="layout">
   <aside class="panel controls">
     <h2>DISCOVERY CONSOLE</h2>
@@ -212,6 +239,50 @@
     </section>
   </aside>
 </main>
+
+
+<section class="pass3-grid" aria-label="Plain-language tools">
+  <section class="panel pass3" id="fixFirstPanel">
+    <h2>FIX THE RISKIEST THING FIRST</h2>
+    <p class="hint">In plain words: start at the top. Each card says what is wrong and what fixing it would do. Click a card to open that device.</p>
+    <div id="fixQueue"></div>
+  </section>
+  <section class="panel pass3" id="simPanel">
+    <h2>WHAT IF WE FIX IT? — RISK SIMULATOR</h2>
+    <p class="hint">Pick a device on the map, then try a fix here. Nothing real changes — this only re-scores the demo device, live, so you can see the number drop.</p>
+    <div id="simDial" class="dial" aria-label="Selected device risk dial"><span id="simScore">—</span><small>risk score</small></div>
+    <p id="simBefore" class="hint">No device selected yet — click a red or amber node first.</p>
+    <p id="simAfter" class="hint" aria-live="polite"></p>
+    <div class="row">
+      <button id="simPatchBtn" class="primary" type="button">Patch this device</button>
+      <button id="simCloseBtn" class="secondary" type="button">Close the risky service</button>
+      <button id="simUndoBtn" class="secondary" type="button">Undo simulator change</button>
+    </div>
+  </section>
+  <section class="panel pass3" id="subnetPanel">
+    <h2>ZOOM INTO ONE NEIGHBOURHOOD — SUBNET DRILL-DOWN</h2>
+    <p class="hint">A subnet is just one neighbourhood of the network. Pick one to see only its devices, its riskiest device, and its average risk — in plain words.</p>
+    <div id="subnetChips" class="chips"></div>
+    <div id="subnetDetail"></div>
+    <button id="subnetBackBtn" class="secondary" type="button">← Back to the whole network</button>
+    <p id="subnetFocusLabel" class="filter-summary" aria-live="polite">Showing the whole network.</p>
+  </section>
+  <section class="panel pass3" id="comparePanel">
+    <h2>COMPARE TWO DEVICES</h2>
+    <p class="hint">Pick any two devices. The verdict line says, in plain words, which one needs attention first and why.</p>
+    <div class="row">
+      <label class="field">Device A <select id="compareA" aria-label="First device to compare"></select></label>
+      <label class="field">Device B <select id="compareB" aria-label="Second device to compare"></select></label>
+    </div>
+    <button id="compareBtn" class="secondary" type="button">Compare them</button>
+    <div id="compareOut"></div>
+  </section>
+  <section class="panel pass3" id="timelinePanel">
+    <h2>WHAT CHANGED, AND WHEN</h2>
+    <p class="hint">A plain timeline of demo changes — no jargon, just what happened.</p>
+    <ol id="timelineList" class="timeline"></ol>
+  </section>
+</section>
 
 <section class="table-wrap">
   <h2>ASSET INVENTORY — FULL VERSION</h2>

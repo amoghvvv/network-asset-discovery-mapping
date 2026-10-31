@@ -52,6 +52,125 @@
   var rules = [];
   var staleDays = DEFAULT_STALE_DAYS;
   var nextId = 1;
+  // ---- Refinement Pass 3 state ----
+  var subnetFocus = null;
+  var simSnapshot = null;
+  var tourStep = -1;
+  var hoverId = null;
+  var lastCompareKey = '';
+  var reducedMotion = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var PLAIN_ROLE = { Core: 'main router', Server: 'server computer', Workstation: 'laptop or desktop', Network: 'network switch', IoT: 'smart device', Printer: 'printer', Unknown: 'mystery device' };
+  function plainReasons(d) {
+    var out = [];
+    if (d.role === 'Unknown') out.push('nobody knows what it actually is');
+    if (d.lastSeenDays > staleDays) out.push('it has not been seen for ' + d.lastSeenDays + ' days');
+    if (d.services.some(function (x) { return x.indexOf('Telnet') !== -1; })) out.push('it still uses Telnet, an old unsafe way to log in');
+    if (d.services.some(function (x) { return x.indexOf('RDP') !== -1; }) && d.exposed) out.push('its remote desktop is exposed to others');
+    if (d.services.some(function (x) { return x.indexOf('SMB') !== -1; }) && d.role === 'Workstation') out.push('it shares files in a way a workstation should not');
+    if (d.patchLevel === 'Outdated') out.push('its software is out of date');
+    return out;
+  }
+  function plainSentence(d) {
+    var reasons = plainReasons(d);
+    var plain = PLAIN_ROLE[d.role] || 'device';
+    if (!reasons.length) return 'This ' + plain + ' (' + d.hostname + ') looks fine in the demo — nothing in the data flags it right now.';
+    return 'This ' + plain + ' (' + d.hostname + ') needs attention because ' + reasons.join(', and ') + '.';
+  }
+  function fixSuggestion(d) {
+    if (d.role === 'Unknown') return 'Find out what this device actually is, then give it a proper name and role.';
+    if (d.services.some(function (x) { return x.indexOf('Telnet') !== -1; })) return 'Close Telnet — the simulator button below does exactly that, on demo data only.';
+    if (d.services.some(function (x) { return x.indexOf('RDP') !== -1; }) && d.exposed) return 'Hide remote desktop behind the firewall, or turn it off if nobody needs it.';
+    if (d.lastSeenDays > staleDays) return 'Check whether it is still plugged in. If not, remove it from the inventory.';
+    if (d.patchLevel === 'Outdated') return 'Patch it — the simulator button below shows its score dropping when you do.';
+    if (d.services.some(function (x) { return x.indexOf('SMB') !== -1; })) return 'Turn off file sharing on this workstation unless it truly needs it.';
+    return 'Keep an eye on it and re-check after the next demo change.';
+  }
+  function rescoreDevice(d) { var r = computeRisk(d); d.riskScore = r.score; d.risk = r.level; d.flags = r.flags; d.breakdown = r.breakdown; }
+  function renderTimeline() {
+    var el = document.getElementById('timelineList'); if (!el) return;
+    el.innerHTML = history.length ? history.map(function (h) { return '<li><b>' + esc(h.action) + '</b> — ' + esc(h.detail) + ' <span class="muted">' + esc(h.at) + '</span></li>'; }).join('') : '<li>No changes yet. Generate a network, import, or run an adapter to start the timeline.</li>';
+  }
+  function renderFixQueue() {
+    var el = document.getElementById('fixQueue'); if (!el) return;
+    var top = devices.filter(function (d) { return d.risk === 'Critical' || d.risk === 'High'; }).sort(function (a, b) { return b.riskScore - a.riskScore; }).slice(0, 5);
+    if (!top.length) { el.innerHTML = '<p class="hint">Nothing urgent right now — no Critical or High devices in this network. Generate a new network to try again.</p>'; return; }
+    el.innerHTML = top.map(function (d, i) { return '<div class="fix-card" tabindex="0" role="button" aria-label="Open ' + esc(d.hostname) + '" data-id="' + d.id + '"><b>#' + (i + 1) + ' — ' + esc(d.hostname) + ' · ' + d.risk + ' (' + d.riskScore + '/100)</b><p>' + esc(plainSentence(d)) + '</p><span class="fix-action">Fix first: ' + esc(fixSuggestion(d)) + ' → Click to open it</span></div>'; }).join('');
+    el.querySelectorAll('.fix-card').forEach(function (card) {
+      var go = function () { selectedId = Number(card.dataset.id); render(); };
+      card.addEventListener('click', go);
+      card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+  }
+  function renderSubnet() {
+    var chips = document.getElementById('subnetChips'); var detail = document.getElementById('subnetDetail'); var label = document.getElementById('subnetFocusLabel');
+    if (!chips || !detail) return;
+    var subs = [...new Set(devices.map(function (d) { return d.subnet; }))].sort();
+    chips.innerHTML = subs.map(function (sn) { return '<button class="chip' + (subnetFocus === sn ? ' active' : '') + '" type="button" aria-pressed="' + (subnetFocus === sn) + '" data-subnet="' + esc(sn) + '">' + esc(sn) + '</button>'; }).join('') || '<p class="hint">No subnets yet — generate a network first.</p>';
+    chips.querySelectorAll('.chip').forEach(function (b) { b.addEventListener('click', function () { subnetFocus = b.dataset.subnet; render(); }); });
+    if (label) label.textContent = subnetFocus ? 'Drilled down to ' + subnetFocus + ' — map and table show only that neighbourhood. Click “Back to the whole network” to restore everything.' : 'Showing the whole network.';
+    if (!subnetFocus) { detail.innerHTML = '<p class="hint">Whole network: ' + devices.length + ' devices across ' + subs.length + ' subnets. Pick a subnet above to zoom in.</p>'; return; }
+    var list = devices.filter(function (d) { return d.subnet === subnetFocus; });
+    var avg = list.length ? Math.round(list.reduce(function (a, d) { return a + d.riskScore; }, 0) / list.length) : 0;
+    var worst = list.slice().sort(function (a, b) { return b.riskScore - a.riskScore; })[0];
+    detail.innerHTML = '<p><b>' + esc(subnetFocus) + '</b> — ' + list.length + ' devices, average risk ' + avg + '/100.</p>' +
+      (worst ? '<p>' + esc(plainSentence(worst)) + '</p><p class="hint">Devices here: ' + esc(list.slice(0, 10).map(function (d) { return d.hostname; }).join(', ')) + (list.length > 10 ? ' and ' + (list.length - 10) + ' more' : '') + '.</p>' : '<p class="hint">No devices in this subnet.</p>');
+  }
+  function renderSimulator() {
+    var scoreEl = document.getElementById('simScore'); var before = document.getElementById('simBefore'); var after = document.getElementById('simAfter'); var dial = document.getElementById('simDial');
+    if (!scoreEl || !before) return;
+    var d = devices.find(function (x) { return x.id === selectedId; });
+    if (!d) { scoreEl.textContent = '—'; if (dial) dial.className = 'dial'; before.textContent = 'No device selected yet — click a red or amber node first.'; if (after) after.textContent = ''; return; }
+    scoreEl.textContent = d.riskScore;
+    if (dial) dial.className = 'dial ' + (d.risk === 'Critical' ? 'crit' : (d.risk === 'High' || d.risk === 'Medium' ? 'warn' : 'ok'));
+    before.textContent = 'Selected: ' + d.hostname + ' — ' + d.risk + ' (' + d.riskScore + '/100). ' + plainSentence(d);
+  }
+  function renderCompareOptions() {
+    var a = document.getElementById('compareA'); var b = document.getElementById('compareB'); if (!a || !b) return;
+    var key = devices.map(function (d) { return d.id + ':' + d.riskScore; }).join(',');
+    if (key === lastCompareKey) return; lastCompareKey = key;
+    var prevA = a.value, prevB = b.value;
+    var opts = devices.map(function (d) { return '<option value="' + d.id + '">' + esc(d.hostname) + ' — ' + d.risk + ' (' + d.riskScore + ')</option>'; }).join('');
+    a.innerHTML = opts; b.innerHTML = opts;
+    if (prevA && devices.some(function (d) { return String(d.id) === prevA; })) a.value = prevA;
+    if (prevB && devices.some(function (d) { return String(d.id) === prevB; })) b.value = prevB;
+    else if (devices.length > 1) b.value = String(devices[1].id);
+  }
+  function simSnapshotOf(d) { return { patchLevel: d.patchLevel, services: d.services.slice(), exposed: d.exposed, lastSeenDays: d.lastSeenDays }; }
+  function doSimPatch() {
+    var d = devices.find(function (x) { return x.id === selectedId; }); var after = document.getElementById('simAfter');
+    if (!d) { if (after) after.textContent = 'Select a device first.'; return; }
+    if (!simSnapshot) simSnapshot = simSnapshotOf(d);
+    var beforeScore = d.riskScore; d.patchLevel = 'Current'; rescoreDevice(d);
+    logHistory('SIMULATED FIX', d.hostname + ' patched in the simulator — risk ' + beforeScore + ' → ' + d.riskScore + '.');
+    render(); if (after) after.textContent = 'Patched! ' + d.hostname + ' went from ' + beforeScore + ' to ' + d.riskScore + '/100. That is what “patch it” is worth, in plain numbers.';
+  }
+  function doSimClose() {
+    var d = devices.find(function (x) { return x.id === selectedId; }); var after = document.getElementById('simAfter');
+    if (!d) { if (after) after.textContent = 'Select a device first.'; return; }
+    var idx = -1; d.services.forEach(function (x, i) { if (idx === -1 && (x.indexOf('Telnet') !== -1 || x.indexOf('RDP') !== -1 || x.indexOf('SMB') !== -1 || x.indexOf('FTP') !== -1)) idx = i; });
+    if (idx === -1) { if (after) after.textContent = d.hostname + ' has no Telnet, RDP, SMB or FTP service to close in this demo.'; return; }
+    if (!simSnapshot) simSnapshot = simSnapshotOf(d);
+    var removed = d.services.splice(idx, 1)[0]; var beforeScore = d.riskScore; rescoreDevice(d);
+    logHistory('SIMULATED FIX', removed + ' closed on ' + d.hostname + ' in the simulator — risk ' + beforeScore + ' → ' + d.riskScore + '.');
+    render(); if (after) after.textContent = 'Closed ' + removed + ' on ' + d.hostname + ': ' + beforeScore + ' → ' + d.riskScore + '/100.';
+  }
+  function doSimUndo() {
+    var d = devices.find(function (x) { return x.id === selectedId; }); var after = document.getElementById('simAfter');
+    if (!d || !simSnapshot) { if (after) after.textContent = 'Nothing to undo — try a simulator fix first.'; return; }
+    Object.assign(d, { patchLevel: simSnapshot.patchLevel, services: simSnapshot.services.slice(), exposed: simSnapshot.exposed, lastSeenDays: simSnapshot.lastSeenDays });
+    simSnapshot = null; rescoreDevice(d); logHistory('SIMULATED FIX UNDONE', d.hostname + ' restored — back to ' + d.riskScore + '/100.');
+    render(); if (after) after.textContent = 'Undone. ' + d.hostname + ' is back to ' + d.riskScore + '/100.';
+  }
+  var tourSteps = [
+    { text: 'Step 1 of 6 — This is the whole story: a live map of every device, and which ones need attention. Red first, amber soon, cyan fine.', action: null },
+    { text: 'Step 2 of 6 — A fresh demo network, built in your browser. The big square in the middle is the main router; everything connects to it.', action: function () { generateNetwork(); } },
+    { text: 'Step 3 of 6 — This is the fix-first queue: the riskiest devices, in plain words, with what to do about each one.', action: function () { var top = devices.filter(function (d) { return d.risk === 'Critical' || d.risk === 'High'; }).sort(function (a, b) { return b.riskScore - a.riskScore; })[0]; if (top) { selectedId = top.id; render(); } document.getElementById('fixFirstPanel').scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' }); } },
+    { text: 'Step 4 of 6 — Now the simulator: press “Patch this device” and watch its risk dial drop. Nothing real changed — it is demo maths, live.', action: function () { var el = document.getElementById('simPanel'); if (el) el.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' }); } },
+    { text: 'Step 5 of 6 — Subnets are neighbourhoods. Pick one chip and the map zooms into just that neighbourhood.', action: function () { var subs = [...new Set(devices.map(function (d) { return d.subnet; }))].sort(); if (subs.length) { subnetFocus = subs[0]; render(); } var el = document.getElementById('subnetPanel'); if (el) el.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' }); } },
+    { text: 'Step 6 of 6 — Done. The table below is the same map as a list — the handover view. Press “End tour” or generate a fresh network to play again.', action: function () { subnetFocus = null; render(); } }
+  ];
+  function showTour() { var t = document.getElementById('tourText'); if (t && tourStep >= 0 && tourStep < tourSteps.length) t.textContent = tourSteps[tourStep].text; }
+
 
   function loadStored(key, fallback) {
     try {
@@ -93,7 +212,7 @@
   }
 
   function generateNetwork() {
-    devices = []; links = []; selectedId = null; nextId = 1;
+    devices = []; links = []; selectedId = null; nextId = 1; subnetFocus = null; simSnapshot = null;
     var core = { id: nextId++, hostname: 'core-rtr-01', ip: '10.0.1.1', mac: '02:00:4A:11:00:01', subnet: SUBNETS[0], role: 'Core', os: 'RouterOS (simulated)', services: SERVICES_BY_ROLE.Core.slice(), lastSeenDays: 0, patchLevel: 'Current', exposed: false, source: 'generated' };
     devices.push(core);
     SUBNETS.forEach(function (subnet, si) {
@@ -168,6 +287,7 @@
       return (role === 'All' || d.role === role) &&
         (risk === 'All' || d.risk === risk) &&
         (src === 'All' || d.source === src) &&
+        (!subnetFocus || d.subnet === subnetFocus) &&
         (!q || d.hostname.toLowerCase().indexOf(q) !== -1 || d.ip.indexOf(q) !== -1);
     });
   }
@@ -184,7 +304,8 @@
     return '#8a9aa3';
   }
 
-  function draw() {
+  function draw(now) {
+    var t = now || Date.now();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     // Pass 2 empty state: an empty network is a valid state, not a broken map.
     if (!devices.length) {
@@ -210,6 +331,12 @@
     devices.forEach(function (d) {
       var dim = !vis.has(d.id);
       ctx.globalAlpha = dim ? 0.25 : 1;
+      if (!dim && !reducedMotion && (d.risk === 'Critical' || d.risk === 'High')) {
+        var pr = 16 + 4 * Math.sin(t / 280 + d.id);
+        ctx.strokeStyle = nodeColour(d); ctx.globalAlpha = 0.55; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(d.x, d.y, pr, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      }
+      if (d.id === hoverId && !dim) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(d.x, d.y, 20, 0, Math.PI * 2); ctx.stroke(); }
       ctx.fillStyle = nodeColour(d);
       ctx.beginPath();
       if (d.role === 'Core') { ctx.rect(d.x - 11, d.y - 11, 22, 22); ctx.fill(); }
@@ -288,6 +415,8 @@
     title.textContent = d.hostname.toUpperCase();
     var breakdownText = (d.breakdown || []).map(function (b) { return b.label + ' (+' + b.points + ')'; }).join(' · ');
     body.innerHTML =
+      '<div class="plain-card"><strong>IN PLAIN WORDS</strong><p>' + esc(plainSentence(d)) + '</p><p class="hint">Do this first: ' + esc(fixSuggestion(d)) + '</p></div>' +
+      '<div class="dial ' + (d.risk === 'Critical' ? 'crit' : (d.risk === 'High' || d.risk === 'Medium' ? 'warn' : 'ok')) + '" aria-label="Risk dial"><span>' + d.riskScore + '</span><small>risk score</small></div>' +
       '<div class="risk ' + d.risk + '">' + d.risk + ' — ' + d.riskScore + '/100</div>' +
       '<div class="risk-bar" aria-label="Risk score"><span class="' + d.risk + '" style="width:' + d.riskScore + '%"></span></div>' +
       '<p class="hint">Why this score: ' + (breakdownText || 'Base score only') + '. Capped at 100. Change weights in the Risk Rule Editor and click Apply rules &amp; re-score to see this change.</p>' +
@@ -326,7 +455,7 @@
     if (sd) sd.addEventListener('input', function () { staleDays = Number(sd.value) || 30; });
   }
 
-  function render() { draw(); renderStats(); renderTable(); renderDetail(); renderHistory(); }
+  function render() { draw(); renderStats(); renderTable(); renderDetail(); renderHistory(); renderFixQueue(); renderSubnet(); renderTimeline(); renderSimulator(); renderCompareOptions(); }
 
   // Pass 2: same IP + hostname = update (existing behaviour). Same IP with a
   // *different* hostname, or same hostname with a *different* IP, is a
@@ -446,7 +575,7 @@
     selectedId = vis[next].id; renderDetail(); draw(); renderTable();
   });
   document.getElementById('clearMapBtn').addEventListener('click', function () {
-    devices = []; links = []; selectedId = null;
+    devices = []; links = []; selectedId = null; subnetFocus = null; simSnapshot = null;
     logHistory('CLEARED', 'Map cleared to the empty state (demo). Generate or import to rebuild.');
     document.getElementById('mapMeta').textContent = 'Map cleared — empty state. Click Generate Network or import an authorised inventory. No real device was touched.';
     layout(); render();
@@ -580,6 +709,42 @@
     }
   });
 
+  // ---- Refinement Pass 3 wiring ----
+  canvas.addEventListener('mousemove', function (e) {
+    var rect = canvas.getBoundingClientRect();
+    var x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    var y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    var hit = null;
+    devices.forEach(function (d) { if (Math.hypot(d.x - x, d.y - y) < 22) hit = d; });
+    var nextHover = hit ? hit.id : null;
+    if (nextHover !== hoverId) { hoverId = nextHover; if (reducedMotion) draw(); }
+    canvas.style.cursor = hit ? 'pointer' : 'default';
+  });
+  document.getElementById('simPatchBtn').addEventListener('click', doSimPatch);
+  document.getElementById('simCloseBtn').addEventListener('click', doSimClose);
+  document.getElementById('simUndoBtn').addEventListener('click', doSimUndo);
+  document.getElementById('subnetBackBtn').addEventListener('click', function () { subnetFocus = null; render(); });
+  document.getElementById('compareBtn').addEventListener('click', function () {
+    var a = devices.find(function (d) { return String(d.id) === document.getElementById('compareA').value; });
+    var b = devices.find(function (d) { return String(d.id) === document.getElementById('compareB').value; });
+    var out = document.getElementById('compareOut');
+    if (!a || !b) { out.innerHTML = '<p class="hint">Pick two devices first.</p>'; return; }
+    var first = a.riskScore >= b.riskScore ? a : b; var second = first === a ? b : a;
+    out.innerHTML = '<table class="compare-table"><tr><th></th><th>' + esc(a.hostname) + '</th><th>' + esc(b.hostname) + '</th></tr>' +
+      '<tr><td>Risk</td><td>' + a.risk + ' (' + a.riskScore + ')</td><td>' + b.risk + ' (' + b.riskScore + ')</td></tr>' +
+      '<tr><td>Role / subnet / source</td><td>' + esc(a.role) + ' · ' + esc(a.subnet) + ' · ' + esc(a.source) + '</td><td>' + esc(b.role) + ' · ' + esc(b.subnet) + ' · ' + esc(b.source) + '</td></tr>' +
+      '<tr><td>Services</td><td>' + esc(a.services.join(', ') || '—') + '</td><td>' + esc(b.services.join(', ') || '—') + '</td></tr>' +
+      '<tr><td>Patch</td><td>' + esc(a.patchLevel) + '</td><td>' + esc(b.patchLevel) + '</td></tr></table>' +
+      '<p><b>Verdict:</b> ' + esc(first.hostname) + ' needs attention first (' + first.riskScore + ' vs ' + second.riskScore + ') — ' + esc(plainSentence(first)) + '</p>';
+  });
+  document.getElementById('tourStartBtn').addEventListener('click', function () { tourStep = 0; showTour(); var s = tourSteps[0]; if (s.action) s.action(); });
+  document.getElementById('tourNextBtn').addEventListener('click', function () {
+    tourStep++;
+    if (tourStep >= tourSteps.length) { tourStep = -1; document.getElementById('tourText').textContent = 'Tour finished — press “Try this” to run it again.'; return; }
+    showTour(); var s = tourSteps[tourStep]; if (s.action) s.action();
+  });
+  document.getElementById('tourEndBtn').addEventListener('click', function () { tourStep = -1; document.getElementById('tourText').textContent = 'Tour stopped. Press “Try this” to run it again.'; });
+
   // ---- init ----
   var storedRules = loadStored('netmap-full-rules', null);
   rules = storedRules && Array.isArray(storedRules.rules) ? storedRules.rules : JSON.parse(JSON.stringify(DEFAULT_RULES));
@@ -587,4 +752,5 @@
   history = loadStored('netmap-full-history', []);
   renderRules();
   generateNetwork();
+  if (!reducedMotion) { var animate = function (t) { draw(t); requestAnimationFrame(animate); }; requestAnimationFrame(animate); }
 })();

@@ -108,3 +108,18 @@ Dark topology-console style, continued from the simulation but deepened: deep-te
 ## Workflow summary
 
 See [WORKFLOW.md](WORKFLOW.md) for the step-by-step workflow, simulation vs full differences, data flow, and risk rules.
+
+## Refinement Pass 3 — what changed
+
+- **Plain-language layer (new):** the same hero as the simulation — “A live map of every device on the network, and which ones need attention” — with an inline SVG blueprint illustration (no images, no external fonts, works offline). Every selected device now opens with an “IN PLAIN WORDS” card and a “Do this first” line, so a non-technical person can follow the demo.
+- **Fix the riskiest thing first (new):** top 5 Critical/High devices as plain-language cards with a fix-first suggestion; clicking opens the device (including imported and adapter assets, with their source shown in comparison).
+- **Risk simulator (new):** patch or close a risky service on the selected device and watch its score drop live, with Undo. Simulator actions are logged in Change History as `SIMULATED FIX` / `SIMULATED FIX UNDONE`, so the timeline and the history stay consistent. Nothing real changes.
+- **Subnet drill-down (new):** subnet chips zoom map, table, stats, and fix queue into one subnet (added as a predicate in `visibleDevices()`, alongside role/risk/source/search), with count, average risk, riskiest device in plain words, and a back button.
+- **Device comparison (new):** side-by-side table including source (generated / imported / adapter / manual) plus a plain verdict on which device needs attention first.
+- **Change timeline (new):** a plain “what changed, and when” panel that renders the existing Change History in timeline form — so imports, adapter runs, rule changes, removes, and simulator fixes all appear in one readable list, in addition to the existing history panel.
+- **Guided “Try this” tour (new):** 6 steps (hero → generate → fix-first queue → simulator → subnet drill-down → table), with Next/End and `aria-live` text.
+- **Motion/design (new):** pulsing Critical/High nodes, animated risk dials, hover rings on the map, hover lift on buttons/cards. `prefers-reduced-motion` disables animation; keyboard navigation, aria labels, and contrast are preserved.
+- **Design language:** dark blueprint console, deep-teal canvas with blueprint grid, cyan wireframe, amber/red risk, Mobbin-style device cards, GetLayers-style layered hero background. No generic AI template.
+- **Preserved, unchanged:** JSON/CSV import with dedupe (IP + hostname) and conflict reporting, change history (localStorage), risk-rule editor, topology export, manual add/remove, adapters as documented import formats with mock fallback, source filter.
+- **Safety unchanged:** synthetic demo data by default; authorised imports only; adapters never scan, probe, or send packets; badges “SYNTHETIC / DEMO DATA BY DEFAULT” and “NO REAL SCAN — NO PACKETS SENT” remain; all rendered user input is escaped.
+- **Pass 3 demo add-on (30 seconds, after the 2-minute script):** run “Try this”, patch the riskiest device in the simulator, read the score drop and its new history entry aloud, then drill into its subnet and back out.

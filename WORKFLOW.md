@@ -129,3 +129,16 @@ Cloud JSON:
 5. Click a critical node, then **Remove this asset** — show the history entry and the map updating (or undo by regenerating).
 6. Click **Export topology (JSON)** — show that the whole topology, rules, and history leave as one file.
 7. Close with: "In a server version, the adapter names stay the same and keys come from `.env` — here, mock fallback proves the workflow without touching a real system."
+
+## Refinement Pass 3 — what changed
+
+- **Plain language:** same `plainSentence()` / `fixSuggestion()` approach as the simulation, adapted to the full version's editable stale threshold (`staleDays` instead of a fixed 30 days). Rendered in the detail panel's “IN PLAIN WORDS” card and in every fix-first card. Hero in one everyday sentence, inline SVG blueprint, no binary images, no CDN.
+- **Fix-first queue:** `renderFixQueue()` — top 5 Critical/High by score, focusable cards, same selection path as node clicks. Works across generated, imported, adapter, and manual assets.
+- **Risk simulator:** `doSimPatch()` / `doSimClose()` / `doSimUndo()` snapshot only affected fields, mutate the demo/imported device, re-score with the editable-rule `computeRisk()`, and log via the existing `logHistory()` (`SIMULATED FIX` / `SIMULATED FIX UNDONE`) — so the simulator is visible in both Change History and the new timeline panel. It does not call an adapter, does not send a packet, and does not change any real device.
+- **Subnet drill-down:** `subnetFocus` added to `visibleDevices()` alongside role, risk, source, and search filters. `renderSubnet()` renders chips, count, average risk, riskiest device in plain words, and device list; drill-down is cleared on generate/clear and by the back button.
+- **Comparison:** `renderCompareOptions()` (rebuild only on device/score-key change, preserving choices) plus a compare table that includes the source column, and a plain verdict.
+- **Timeline:** `renderTimeline()` renders the existing `history` array (capped at 200, localStorage-persisted) as a plain timeline, in addition to the existing Change History list. No second history store was introduced — one source of truth, two views.
+- **Tour:** `tourSteps` (6 steps) with text + optional action, Next/End, `aria-live` text. Tour actions reuse existing functions (`generateNetwork()`, selection + `render()`, subnet focus) rather than duplicating logic.
+- **Motion:** `draw(now)` with pulsing Critical/High rings and a hover ring (`hoverId` from a new canvas mousemove listener); `requestAnimationFrame` loop only when `prefers-reduced-motion` is off. Risk dials in detail and simulator; hover lift on buttons/cards.
+- **Data flow (Pass 3 additions):** simulator/tour/drill-down actions → existing `computeRisk()` / `visibleDevices()` / `logHistory()` → `render()` → `renderFixQueue()` / `renderSubnet()` / `renderTimeline()` / `renderSimulator()` / `renderCompareOptions()`. Import, adapters, rules, history, and export flows are untouched.
+- **Safety unchanged:** synthetic by default, authorised imports only, adapters are documented import formats with mock fallback, no packets, no probing, no port scanning, `esc()` on rendered text.

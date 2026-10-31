@@ -95,3 +95,43 @@ code{background:#041017;border:1px solid var(--line);padding:1px 5px;font-size:1
 .skip-link:focus{left:8px}
 canvas{outline:none}
 tbody tr:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+
+/* Refinement Pass 3 — plain-language hero + blueprint motion. No external fonts, no images. */
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin:14px 14px 0;padding:22px;border:1px solid var(--line);background:linear-gradient(180deg,#0b2230 0%,#07161f 100%),repeating-linear-gradient(0deg,transparent 0 27px,rgba(0,229,255,.06) 27px 28px),repeating-linear-gradient(90deg,transparent 0 27px,rgba(0,229,255,.06) 27px 28px);background-blend-mode:normal}
+.hero .eyebrow{color:#7dffc8;font-size:11px;letter-spacing:2px;margin:0 0 10px}
+.hero h1{font-family:ui-sans-system,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:34px;line-height:1.12;letter-spacing:-.5px;margin:0 0 12px;color:#fff}
+.hero-sub{font-family:ui-sans-system,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:16px;line-height:1.6;color:var(--text)}
+.hero-cta{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.hero-cta .primary,.hero-cta .secondary{width:auto;flex:1;min-width:180px}
+.hero-note{color:var(--muted);font-size:12px}
+.hero-art svg{width:100%;height:auto;display:block;border:1px solid var(--line);background:#04121a}
+.tour-box{border:1px solid var(--cyan);background:#0a1e28;padding:12px;margin-top:6px}
+.tour-box p{font-size:13px;line-height:1.6;color:var(--text)}
+.pass3-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px}
+.pass3 h2{font-family:ui-sans-system,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+.fix-card{border:1px solid var(--line);background:var(--panel2);padding:12px;margin-top:10px;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.fix-card:hover,.fix-card:focus-visible{transform:translateY(-2px);border-color:var(--cyan);box-shadow:0 6px 18px rgba(0,229,255,.15)}
+.fix-card b{font-size:14px}
+.fix-card p{margin:6px 0;color:var(--muted);font-size:13px;line-height:1.6}
+.fix-card .fix-action{color:var(--cyan);font-size:12px}
+.plain-card{border-left:4px solid var(--cyan);background:var(--panel2);padding:12px;margin-bottom:12px}
+.plain-card p{font-family:ui-sans-system,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:15px;line-height:1.6;color:#fff;margin:6px 0 0}
+.dial{width:110px;height:110px;border:3px solid var(--cyan);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:12px 0;transition:transform .25s ease,border-color .25s ease}
+.dial:hover{transform:scale(1.05)}
+.dial span{font-size:30px;font-weight:700}
+.dial small{font-size:11px;color:var(--muted)}
+.dial.crit{border-color:var(--red)} .dial.warn{border-color:var(--amber)} .dial.ok{border-color:var(--green)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.chip{background:transparent;border:1px solid var(--cyan);color:var(--cyan);padding:8px 12px;width:auto;margin:0}
+.chip.active{background:var(--cyan);color:#001318;font-weight:700}
+.chip:hover{transform:translateY(-1px)}
+.timeline{list-style:none;padding:0;margin:10px 0}
+.timeline li{border-left:3px solid var(--cyan);padding:8px 0 8px 14px;margin:0;color:var(--muted);font-size:13px;line-height:1.6}
+.timeline li b{color:var(--text)}
+.compare-table{width:100%;border-collapse:collapse;min-width:0;margin-top:12px}
+.compare-table td,.compare-table th{border:1px solid var(--line);padding:8px;text-align:left}
+button,.seg-btn,.conn-btn,.chip{transition:transform .15s ease,filter .15s ease}
+button:hover{transform:translateY(-1px)}
+button:active{transform:translateY(0)}
+@media(max-width:900px){.hero,.pass3-grid{grid-template-columns:1fr}.hero h1{font-size:26px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.pulse{animation:none!important}}
